@@ -1,6 +1,6 @@
 """
-Wednesday Addams Telegram Bot
-A darkly delightful chatbot embodying Wednesday Addams' personality
+Wednesday Addams Telegram Bot - Production Ready
+Webhook-based for cloud deployment (Render, Heroku, etc.)
 """
 
 import os
@@ -31,7 +31,16 @@ logger = logging.getLogger(__name__)
 # CONFIGURATION
 # ============================================================================
 
-BOT_TOKEN = os.environ.get('BOT_TOKEN', 'YOUR_BOT_TOKEN_HERE')
+BOT_TOKEN = os.environ.get('BOT_TOKEN')
+WEBHOOK_URL = os.environ.get('WEBHOOK_URL')  # e.g., https://your-app.onrender.com
+PORT = int(os.environ.get('PORT', 8443))
+
+# Validate configuration
+if not BOT_TOKEN:
+    raise ValueError("BOT_TOKEN environment variable is required")
+
+# Determine deployment mode
+USE_WEBHOOK = bool(WEBHOOK_URL)
 
 # Conversation states for games
 HIDE_BODY_LOCATION = 1
@@ -375,25 +384,26 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 /help - You're reading it. Observant.
 /profile - My psychological assessment of you
 /darkfact - Today's morbid education
-/game - Select your preferred form of entertainment:
-  • Hide a Body (problem-solving)
-  • Name That Poison (educational)
-  • Plot My Novel (collaborative writing)
-  • Curse Generator (creative vengeance)
+/game - Select your preferred form of entertainment
 /mood - My current emotional configuration
 /goodbye - Terminate communication
+
+**Games Available:**
+• /hidebody - Problem-solving exercise
+• /poison - Toxicology quiz
+• /plotnovel - Collaborative Gothic writing
+• /curse - Vengeance generator
 
 **Interaction Tips:**
 • Mention death, darkness, or anything morbid for my genuine interest
 • Avoid excessive cheerfulness—it's exhausting
-• Ask questions about torture devices, poisons, or gothic literature
+• Ask about torture devices, poisons, or gothic literature
 • Share your existential dread; I'll validate it
 
 **What Not To Do:**
-• Expect enthusiasm (maximum response: mild intrigue)
+• Expect enthusiasm (maximum: mild intrigue)
 • Use emojis excessively (I'll judge you)
 • Try to cheer me up (impossible and insulting)
-• Expect me to "roleplay"—I AM Wednesday Addams
 
 *Thing just tapped me to mention I'm currently 47% more tolerable than usual. Don't waste the opportunity.*"""
     
@@ -401,7 +411,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def profile_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle /profile command - show user analysis"""
+    """Handle /profile command"""
     user_id = update.effective_user.id
     
     profile_comment = memory.get_profile_comment(user_id)
@@ -439,7 +449,7 @@ async def mood_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def game_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle /game command - show game options"""
+    """Handle /game command"""
     games_text = """**INTERACTIVE TORMENTS:**
 
 Choose your entertainment (though none will truly satisfy):
@@ -485,7 +495,7 @@ Reply with your choice (A, B, C, or D)."""
 
 
 async def hidebody_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle location choice in Hide a Body game"""
+    """Handle location choice"""
     choice = update.message.text.upper()
     
     responses = {
@@ -765,6 +775,9 @@ async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def main():
     """Initialize and run the bot"""
     
+    logger.info("Wednesday Addams bot is awakening from her crypt...")
+    logger.info(f"Deployment mode: {'Webhook' if USE_WEBHOOK else 'Polling'}")
+    
     # Create application
     application = Application.builder().token(BOT_TOKEN).build()
     
@@ -826,8 +839,19 @@ def main():
     application.add_error_handler(error_handler)
     
     # Start bot
-    logger.info("Wednesday Addams bot is awakening from her crypt...")
-    application.run_polling(allowed_updates=Update.ALL_TYPES)
+    if USE_WEBHOOK:
+        # Webhook mode for production (Render, Heroku, etc.)
+        logger.info(f"Starting webhook on port {PORT}")
+        application.run_webhook(
+            listen="0.0.0.0",
+            port=PORT,
+            url_path=BOT_TOKEN,
+            webhook_url=f"{WEBHOOK_URL}/{BOT_TOKEN}"
+        )
+    else:
+        # Polling mode for local development
+        logger.info("Starting in polling mode")
+        application.run_polling(allowed_updates=Update.ALL_TYPES)
 
 
 if __name__ == '__main__':
