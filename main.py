@@ -227,7 +227,9 @@ def run_poison_trivia() -> None:
 # -----------------------
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="singlefile-cli", description="Single-file Python CLI demo")
-    sub = p.add_subparsers(dest="command", required=True)
+    # Do not set required=True so the parser won't error when invoked with no arguments.
+    # We'll handle the no-command case explicitly in main().
+    sub = p.add_subparsers(dest="command")
 
     # stats
     pst = sub.add_parser("stats", help="Analyze text from a file or stdin")
@@ -294,6 +296,11 @@ def cmd_name_poison_trivia(_: argparse.Namespace) -> int:
 def main(argv: List[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
+
+    # If no subcommand was provided, print help and exit with success.
+    if getattr(args, "command", None) is None:
+        parser.print_help()
+        return 0
 
     # Dispatch
     if args.command == "stats":
